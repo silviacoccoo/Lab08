@@ -70,8 +70,9 @@ class Model:
     def __ricorsione(self, sequenza_parziale, giorno, ultimo_impianto, costo_corrente, consumi_settimana):
         """ Implementa la ricorsione """
 
-        if self.__costo_ottimo == -1 and costo_corrente >= self.__costo_ottimo:
+        if self.__costo_ottimo != -1 and costo_corrente >= self.__costo_ottimo:
             return
+
         # Condizione finale
         if giorno==8:
             if self.__costo_ottimo==-1 or costo_corrente < self.__costo_ottimo:
@@ -81,23 +82,19 @@ class Model:
         # Ricorsione
         else:
             # Per ogni impianto
-            for impianto in self._impianti:
-                id_scelto=impianto.id
-
-                # Costo del consumo energetico
-                costo_energetico=consumi_settimana[id_scelto][giorno-1]
-
+            for id_impianto in consumi_settimana.keys():
                 # Costo fisso per lo spostamento
-                costo_spostamento=0
-                if ultimo_impianto is not None and id_scelto!=ultimo_impianto:
+                costo_spostamento = 0
+                # Se NON è il primo giorno E l'impianto scelto è diverso da quello precedente
+                if ultimo_impianto is not None and id_impianto!=ultimo_impianto:
                     costo_spostamento=5
+
+                costo_energetico=consumi_settimana[id_impianto][giorno-1]
 
                 # Costo totale
                 costo_nuovo=costo_corrente+costo_energetico+costo_spostamento
-
-                sequenza_parziale.append(id_scelto)
-
-                self.__ricorsione(sequenza_parziale, giorno+1,id_scelto, costo_nuovo, consumi_settimana)
+                sequenza_parziale.append(id_impianto)
+                self.__ricorsione(sequenza_parziale, giorno + 1, id_impianto, costo_nuovo, consumi_settimana)
 
                 # Backtracking
                 sequenza_parziale.pop()
@@ -117,15 +114,17 @@ class Model:
 
             if consumi_impianto is None:
                 continue
+            consumi_filtrati = [c for c in consumi_impianto
+                                if c.data.month == mese and 1 <= c.data.day <= 7]
+            consumi_ordinati = sorted(consumi_filtrati, key=lambda x: x.data.day)
+            kwh_list = [c.kwh for c in consumi_ordinati]
 
-            consumi_filtro=sorted([for m in consumi_impianto if m.data.month==mese and m.data.day<=7], key=lambda x: x.data.day)
-            lista_kwh=[m.kwh for m in consumi_filtro]
-
-            if len(lista_kwh)==7:
-                consumi_settimana[impianto.id]=lista_kwh
+            if len(kwh_list) == 7:
+                consumi_settimana[impianto.id] = kwh_list
             else:
-                print(f"Attenzione: Dati incompleti per l'impianto {impianto.id} nel seguente mese: {mese}.")
-                consumi_settimana[impianto.id]=lista_kwh
+                # Log di sicurezza per il debug
+                print(
+                    f"Attenzione: Dati incompleti per impianto {impianto.id} nel mese {mese}. Trovati {len(kwh_list)}/7 giorni.")
         return consumi_settimana
 
         # TODO

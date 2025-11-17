@@ -25,6 +25,29 @@ class Model:
         :param mese: Mese selezionato (un intero da 1 a 12)
         :return: lista di tuple --> (nome dell'impianto, media), es. (Impianto A, 123)
         """
+        consumi_medi=[]
+
+        if self._impianti is None:
+            return []
+
+        for impianto in self._impianti:
+            consumi_impianto=impianto.get_consumi() # Il metodo definito nel DTO
+            # Raccoglie i consumi di ogni impianto
+
+            if consumi_impianto is None:
+                continue
+
+            consumi_mensili=[]
+            for m in consumi_impianto:
+                if m.data.month==mese:
+                    consumi_mensili.append(m.kwh) # Aggiungo i kilowatt ora
+
+            if len(consumi_mensili)>0:
+                media=sum(consumi_mensili)/len(consumi_mensili)
+                consumi_medi.append((impianto.nome, round(media,2)))
+            else:
+                consumi_medi.append((impianto.nome, 0))
+        return consumi_medi
         # TODO
 
     def get_sequenza_ottima(self, mese:int):
@@ -46,12 +69,64 @@ class Model:
 
     def __ricorsione(self, sequenza_parziale, giorno, ultimo_impianto, costo_corrente, consumi_settimana):
         """ Implementa la ricorsione """
+
+        if self.__costo_ottimo == -1 and costo_corrente >= self.__costo_ottimo:
+            return
+        # Condizione finale
+        if giorno==8:
+            if self.__costo_ottimo==-1 or costo_corrente < self.__costo_ottimo:
+                self.__costo_ottimo = costo_corrente
+                self.__sequenza_ottima= list(sequenza_parziale)
+            return
+        # Ricorsione
+        else:
+            # Per ogni impianto
+            for impianto in self._impianti:
+                id_scelto=impianto.id
+
+                # Costo del consumo energetico
+                costo_energetico=consumi_settimana[id_scelto][giorno-1]
+
+                # Costo fisso per lo spostamento
+                costo_spostamento=0
+                if ultimo_impianto is not None and id_scelto!=ultimo_impianto:
+                    costo_spostamento=5
+
+                # Costo totale
+                costo_nuovo=costo_corrente+costo_energetico+costo_spostamento
+
+                sequenza_parziale.append(id_scelto)
+
+                self.__ricorsione(sequenza_parziale, giorno+1,id_scelto, costo_nuovo, consumi_settimana)
+
+                # Backtracking
+                sequenza_parziale.pop()
         # TODO
 
     def __get_consumi_prima_settimana_mese(self, mese: int):
         """
         Restituisce i consumi dei primi 7 giorni del mese selezionato per ciascun impianto.
-        :return: un dizionario: {id_impianto: [kwh_giorno1, ..., kwh_giorno7]}
+        :return un dizionario: {id_impianto: [kwh_giorno1, ..., kwh_giorno7]}
         """
+        consumi_settimana = {}
+        if self._impianti is None:
+            return {}
+
+        for impianto in self._impianti:
+            consumi_impianto=impianto.get_consumi()
+
+            if consumi_impianto is None:
+                continue
+
+            consumi_filtro=sorted([for m in consumi_impianto if m.data.month==mese and m.data.day<=7], key=lambda x: x.data.day)
+            lista_kwh=[m.kwh for m in consumi_filtro]
+
+            if len(lista_kwh)==7:
+                consumi_settimana[impianto.id]=lista_kwh
+            else:
+                print(f"Attenzione: Dati incompleti per l'impianto {impianto.id} nel seguente mese: {mese}.")
+                consumi_settimana[impianto.id]=lista_kwh
+        return consumi_settimana
+
         # TODO
 
